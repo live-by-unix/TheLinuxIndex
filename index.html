@@ -1,0 +1,79 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TheLinuxIndex 1.0</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Cpath d='M256 0c141.385 0 256 114.615 256 256S397.385 512 256 512 0 397.385 0 256 114.615 0 256 0z' fill='%23fff'/%3E%3Cpath d='M275.05 137.49c-35.48-1.54-62.83 23.95-65.07 59.51-.43 6.94.38 13.92 2.37 20.61-24.94 13.11-42.58 37.45-45.74 65.81-2.9 26.04 4.54 51.52 19.82 71.39-1.28 1.48-2.52 3.01-3.71 4.58-10.97 14.53-15.68 31.25-13.88 47.46 1.76 15.82 10.65 29.54 24.36 37.66 12.01 7.11 25.96 9.49 39.42 6.83 14.73-2.92 27.68-12.01 35.53-24.92 3.73-6.14 6.28-12.83 7.6-19.74 18.06 6.36 37.89 8.04 57.19 4.67 19.3-3.37 36.68-12.18 50.15-25.29 1.32 1.55 2.7 3.06 4.14 4.53 7.85 8.05 17.65 13.15 28.31 14.74 10.66 1.59 21.6-.53 30.82-6.15 9.22-5.62 16.27-14.7 19.36-24.87 3.09-10.17 2.14-21.24-2.77-30.29-3.93-7.23-9.74-13.19-16.85-17.38 13.78-19.98 20.2-45.38 17.58-71.18-2.61-25.68-16.14-48.47-36.56-62.77 1.25-5.91 1.83-11.96 1.7-18.06-.79-35.73-30.01-63.51-65.77-62.06z' fill='%23000'/%3E%3Ccircle cx='239' cy='188' r='12' fill='%23fff'/%3E%3Ccircle cx='305' cy='188' r='12' fill='%23fff'/%3E%3Cpath d='M252 225s12 10 28 0' stroke='%23f97316' stroke-width='4' stroke-linecap='round'/%3E%3C/svg%3E">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;700&display=swap');
+        body { background: #0b0e14; color: #adbac7; font-family: 'Fira Code', monospace; }
+        .result-card { background: #1c2128; border: 1px solid #444c56; border-radius: 8px; }
+        .result-card:hover { border-color: #539bf5; }
+        .scanning { animation: blink 1s infinite; }
+        @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.3; } 100% { opacity: 1; } }
+    </style>
+</head>
+<body class="min-h-screen p-4 md:p-12">
+    <div class="max-w-4xl mx-auto w-full">
+        <header class="mb-12 text-center">
+            <h1 class="text-5xl font-bold text-white mb-4 tracking-tighter">TheLinuxIndex</h1>
+            <p id="status" class="text-blue-500 text-xs tracking-[0.2em] uppercase">Ready for Query</p>
+        </header>
+
+        <div class="mb-10">
+            <input type="text" id="search-box" placeholder="e.g. Debian 10 amd64" 
+                class="w-full bg-[#0d1117] border border-[#30363d] rounded p-5 text-xl text-white focus:outline-none focus:ring-1 focus:ring-blue-500">
+            <p class="text-[10px] text-gray-500 mt-2 px-1">PRESS ENTER TO TRIGGER REAL-TIME CRAWL</p>
+        </div>
+
+        <div id="results" class="space-y-4"></div>
+    </div>
+
+    <script>
+        const searchBox = document.getElementById('search-box');
+        const resultsDiv = document.getElementById('results');
+        const status = document.getElementById('status');
+
+        const WORKER_URL = "https://linuxindexapi.live-by-unix.workers.dev/"; 
+
+        searchBox.addEventListener('keypress', async (e) => {
+            if (e.key === 'Enter') {
+                const query = searchBox.value.trim();
+                if (!query) return;
+
+                status.innerText = "QUERYING 100+ MIRRORS...";
+                status.classList.add('scanning');
+                resultsDiv.innerHTML = "";
+
+                try {
+                    const response = await fetch(`${WORKER_URL}?q=${encodeURIComponent(query)}`);
+                    const data = await response.json();
+                    
+                    status.classList.remove('scanning');
+                    status.innerText = data.length > 0 ? `SYNC COMPLETE: ${data.length} MATCHES` : "NO MATCHES IN GLOBAL INDEX";
+
+                    resultsDiv.innerHTML = data.map(item => `
+                        <div class="result-card p-6">
+                            <div class="flex flex-col md:flex-row justify-between gap-2 mb-4">
+                                <h2 class="text-lg font-bold text-white">${item.name}</h2>
+                                <span class="text-[10px] font-mono text-gray-500 bg-black p-1 rounded">${item.hash}</span>
+                            </div>
+                            <div class="bg-black p-3 rounded mb-4 overflow-hidden">
+                                <code class="text-xs text-green-400">wget -c ${item.url}</code>
+                            </div>
+                            <div class="flex gap-3">
+                                <a href="${item.url}" class="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 rounded text-center text-sm transition">DOWNLOAD</a>
+                                <button onclick="alert('Hash archived')" class="flex-1 bg-gray-800 hover:bg-gray-700 text-white py-2 rounded text-sm transition">ZIP HASH</button>
+                            </div>
+                        </div>
+                    `).join('');
+                } catch (err) {
+                    status.innerText = "INDEX UNREACHABLE";
+                }
+            }
+        });
+    </script>
+</body>
